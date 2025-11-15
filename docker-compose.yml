@@ -1,8 +1,6 @@
 services:
   client:
     build: ./client
-    ports:
-      - "8080:80"
     depends_on:
       - todo_api
       - auth_service
@@ -11,8 +9,6 @@ services:
 
   client2:
     build: ./client
-    ports:
-      - "8081:80"
     depends_on:
       - todo_api
       - auth_service

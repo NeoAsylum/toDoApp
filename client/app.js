@@ -18,8 +18,11 @@ const todoDueDateInput = document.getElementById('todo-due-date');
 const todoPriorityInput = document.getElementById('todo-priority');
 const todoList = document.getElementById('todo-list');
 
-const AUTH_API_URL = 'http://localhost:5002';
-const TODO_API_URL = 'http://localhost:5001';
+const currentPath = window.location.pathname;
+const clientBasePath = currentPath.startsWith('/client1/') ? '/client1' : '/client2';
+
+const AUTH_API_URL = `${clientBasePath}/api/auth`;
+const TODO_API_URL = `${clientBasePath}/api/todos`;
 
 showRegister.addEventListener('click', () => {
     authContainer.style.display = 'none';
@@ -39,7 +42,13 @@ loginBtn.addEventListener('click', async () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
+    }).catch(error => {
+        console.error('Login fetch error:', error);
+        alert('Network error during login. Please check your connection.');
+        return null; // Return null to prevent further processing
     });
+
+    if (!response) return; // If fetch failed, stop here
 
     if (response.ok) {
         const data = await response.json();
@@ -49,7 +58,9 @@ loginBtn.addEventListener('click', async () => {
         todoContainer.style.display = 'block';
         loadTodos();
     } else {
-        alert('Login failed');
+        const errorData = await response.json();
+        console.error('Login failed:', errorData);
+        alert(`Login failed: ${errorData.message || response.statusText}`);
     }
 });
 
