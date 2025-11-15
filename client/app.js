@@ -162,7 +162,7 @@ async function loadTodos() {
                 <td><span class="task-text">${todo.task}</span></td>
                 <td><span class="due-date-text">${todo.due_date ? new Date(todo.due_date).toLocaleDateString() : 'No Due Date'}</span></td>
                 <td><span class="priority-text">Priority: ${todo.priority}</span></td>
-                <td><span class="status-text">Status: ${todo.status}</span></td>
+                <td><input type="checkbox" class="todo-completed-checkbox" ${todo.completed ? 'checked' : ''}></td>
                 <td>
                     <button class="edit-btn">Edit</button>
                     <button class="delete-btn">Delete</button>
@@ -176,28 +176,10 @@ async function loadTodos() {
             const taskText = tr.querySelector('.task-text');
             const dueDateText = tr.querySelector('.due-date-text');
             const priorityText = tr.querySelector('.priority-text');
-            const statusText = tr.querySelector('.status-text');
             const editBtn = tr.querySelector('.edit-btn');
             const deleteBtn = tr.querySelector('.delete-btn');
 
-            tr.addEventListener('click', async (e) => {
-                if (e.target === editBtn || e.target === deleteBtn) {
-                    return;
-                }
-                const updateResponse = await fetch(`${TODO_API_URL}/todos/${todo.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ completed: !todo.completed })
-                });
-                if (updateResponse.ok) {
-                    loadTodos();
-                } else {
-                    alert('Failed to update todo');
-                }
-            });
+
 
             editBtn.addEventListener('click', () => {
                 const isEditing = tr.classList.contains('editing');
@@ -261,6 +243,23 @@ async function loadTodos() {
                     loadTodos();
                 } else {
                     alert('Failed to delete todo');
+                }
+            });
+
+            const completedCheckbox = tr.querySelector('.todo-completed-checkbox');
+            completedCheckbox.addEventListener('change', async (e) => {
+                const updateResponse = await fetch(`${TODO_API_URL}/todos/${todo.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ completed: e.target.checked })
+                });
+                if (updateResponse.ok) {
+                    loadTodos();
+                } else {
+                    alert('Failed to update todo status');
                 }
             });
             todoList.querySelector('tbody').appendChild(tr);
