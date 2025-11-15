@@ -8,7 +8,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {
-    "origins": ["http://localhost:8080", "http://localhost:8081"],
+    "origins": ["http://localhost:8080", "http://localhost:8081", "https://localhost"],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"]
 }})
