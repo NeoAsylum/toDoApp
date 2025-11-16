@@ -1,86 +1,158 @@
-# ToDoApp
+**ToDoApp** — multi-service todo application (frontend + auth + todo API + Postgres)
 
-This is a multi-service ToDo application, orchestrated using Docker Compose. It consists of a frontend client, a ToDo API, an authentication service, and a PostgreSQL database.
+This repository contains a small example ToDo application split into separate containers and orchestrated with Docker Compose. It includes:
 
-## Services
+- `client/` — static frontend (served by Nginx).
+- `server/auth_service/` — Flask-based authentication service (register, login, validate token).
+- `server/todo_api/` — Flask-based ToDo API (CRUD operations). It validates tokens by calling the auth service.
+- `db` and `db_auth` — two PostgreSQL containers used by the todo API and auth service respectively (configured in `docker-compose.yml`).
 
-- **Client**: A web-based frontend application for interacting with the ToDo services. Two instances are available.
-- **ToDo API**: A backend service that manages ToDo items.
-- **Auth Service**: A backend service responsible for user authentication and authorization.
-- **PostgreSQL Database**: A relational database used by both the ToDo API and Auth Service.
+**High-level architecture**
+- The browser client communicates with the Auth Service to authenticate users and with the ToDo API for todo CRUD operations.
+- The ToDo API checks tokens by calling the Auth Service `/validate` endpoint and uses a Postgres DB to persist todos.
+- An Nginx container is provided to proxy and serve the static client, exposing the two client instances as `/client1/` and `/client2/` paths.
 
-## Getting Started
+Contents of this README
+- Project Structure
+- Prerequisites
+- Quick start
+- Services & ports
+- Environment variables
+- API endpoints
+- Local development notes
+- Design Document
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
+Project Structure
+- `.gitignore`: Specifies intentionally untracked files to ignore.
+- `actual_requirements.txt`: Contains the detailed functional and technical requirements for the project.
+- `docker-compose.yml`: Defines and runs the multi-container Docker application.
+- `nginx.conf`, `nginx.crt`, `nginx.key`: Nginx configuration and SSL certificates for the proxy server.
+- `README.md`: This file, providing an overview and instructions.
+- `client/`: Contains the static frontend application.
+    - `app.js`: Frontend JavaScript logic.
+    - `Dockerfile`: Dockerfile for the client application.
+    - `favicon.svg`: Favicon for the client.
+    - `index.html`: Main HTML file for the client.
+    - `style.css`: Stylesheet for the client.
+- `server/`: Contains the backend services.
+    - `auth_service/`: Flask-based authentication service.
+        - `app.py`: Main application file for the auth service.
+        - `Dockerfile`: Dockerfile for the auth service.
+        - `requirements.txt`: Python dependencies for the auth service.
+    - `todo_api/`: Flask-based ToDo API service.
+        - `app.py`: Main application file for the ToDo API.
+        - `Dockerfile`: Dockerfile for the ToDo API.
+        - `requirements.txt`: Python dependencies for the ToDo API.
 
-### Prerequisites
+Prerequisites
+Before you begin, ensure you have the following installed:
+- Docker: [https://www.docker.com/get-started](https://www.docker.com/get-started)
+- Docker Compose: Usually comes with Docker Desktop installation.
 
-Make sure you have the following installed:
+Quick start (Docker Compose)
 
-- [Docker](https://www.docker.com/get-started)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+1. Build and start all services:
 
-### Installation
+```powershell
+docker-compose up --build -d
+```
 
-1.  **Clone the repository (if applicable):**
-    ```bash
-    git clone <repository_url>
-    cd toDoApp
-    ```
-    (Assuming you are already in the `toDoApp` directory)
+2. Check running containers:
 
-2.  **Build and run the services using Docker Compose:**
-    This command will build the Docker images for the client, todo_api, and auth_service, and then start all the services, including the PostgreSQL database.
+```powershell
+docker-compose ps
+```
 
-    ```bash
-    docker-compose up --build -d
-    ```
-    The `-d` flag runs the services in detached mode (in the background).
+3. Access the app:
+- Open https://localhost/client1/ or https://localhost/client2/ (Nginx in `docker-compose.yml` proxies these paths to the client containers).
+- The ToDo API is published on the host at `http://localhost:5001` (maps to container port 5000).
+- The Auth Service is published on the host at `http://localhost:5002` (maps to container port 5000).
 
-3.  **Verify services are running:**
-    ```bash
-    docker-compose ps
-    ```
-    You should see all services listed with a `Up` status.
+Stopping and removing containers (and volumes):
 
-### Accessing the Application
-
-Once all services are up and running:
-
--   **Client (Frontend) 1**: Access the main application in your web browser at `http://localhost:8080`
--   **Client (Frontend) 2**: Access the second instance of the application in your web browser at `http://localhost:8081`
--   **ToDo API**: The API will be available internally to the client services and externally at `http://localhost:5001`
--   **Auth Service**: The authentication service will be available internally to the client services and externally at `http://localhost:5002`
-
-## Stopping the Application
-
-To stop all running services and remove the containers, networks, and volumes created by `docker-compose up`:
-
-```bash
+```powershell
 docker-compose down -v
 ```
-The `-v` flag also removes the `pgdata` volume, which means your database data will be lost. If you want to preserve the database data, omit the `-v` flag.
 
-## Project Structure
+Note: `-v` removes the database volumes (`pgdata`, `pgdata_auth`) and will delete stored data. Omit `-v` to keep data.
 
-```
-.
-├── .gitignore
-├── actual_requirements.txt
-├── docker-compose.yml
-├── client/
-│   ├── app.js
-│   ├── Dockerfile
-│   ├── favicon.svg
-│   ├── index.html
-│   └── style.css
-└── server/
-    ├── auth_service/
-    │   ├── app.py
-    │   ├── Dockerfile
-    │   └── requirements.txt
-    └── todo_api/
-        ├── app.py
-        ├── Dockerfile
-        └── requirements.txt
-```
+Services & key ports
+- `nginx` — host:443 -> container:443 (configured with `nginx.conf`) — external TLS entrypoint. Use the paths `/client1/` and `/client2/`.
+- `client` / `client2` — static frontend (internal port 80 in the container). Served via nginx proxy in this setup.
+- `todo_api` — host:5001 -> container:5000 (Flask app)
+- `auth_service` — host:5002 -> container:5000 (Flask app)
+- `db` (Postgres) — internal DB for `todo_api` (container internal port 5432)
+- `db_auth` (Postgres) — internal DB for `auth_service` (container internal port 5432)
+
+Environment variables (set in `docker-compose.yml`)
+- `todo_api` expects:
+    - `AUTH_SERVICE_URL` (internal service URL used by the todo API, e.g. `http://auth_service:5000`)
+    - `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- `auth_service` expects:
+    - `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+    - `JWT_SECRET` (used to sign JWT tokens)
+
+If you run services locally (without Docker), export these env vars before starting the Flask apps.
+
+API reference
+
+Auth Service (`auth_service`)
+- `POST /register` — register a new user
+    - Request JSON: `{ "username": "...", "password": "..." }`
+    - Response: created user info `{ "id": <id>, "username": "..." }`
+- `POST /login` — login
+    - Request JSON: `{ "username": "...", "password": "..." }`
+    - Response: `{ "token": "<jwt>" }` (store in `localStorage` on the client)
+- `POST /validate` — validate token (used by todo_api middleware)
+    - Request JSON: `{ "token": "<jwt>" }`
+    - Response: `{ "user_id": <id> }` if valid
+- `GET /check-user?username=<username>` — check if username exists
+
+ToDo API (`todo_api`) — requires `Authorization: Bearer <token>` on protected endpoints
+- `GET /todos` — get todos for the authenticated user
+- `POST /todos` — create a new todo
+    - Request JSON example: `{ "task": "Buy milk", "due_date": "2025-11-20", "priority": "Medium" }`
+- `PUT /todos/<id>` — update a todo (fields: task, completed, due_date, priority, status)
+- `DELETE /todos/<id>` — delete a todo
+- `GET /health` — simple health check (returns `OK`)
+
+Client
+- The frontend JavaScript (`client/app.js`) expects to access APIs via the proxied paths set by `nginx.conf`: the client uses `clientBasePath` (either `/client1` or `/client2`) and calls the auth and todo endpoints under `/api/auth` and `/api/todos` respectively. When using the provided Docker Compose + Nginx setup, these requests are proxied to `auth_service` and `todo_api`.
+
+Development notes
+- Local run without Docker (quick):
+    - For `auth_service`:
+        - Set `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET` in your shell.
+        - `cd server/auth_service && python app.py`
+    - For `todo_api`:
+        - Set `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `AUTH_SERVICE_URL`.
+        - `cd server/todo_api && python app.py`
+    - The services each create their required tables on startup (`users` and `todos`).
+
+Dependencies
+- `server/auth_service/requirements.txt`: Flask, psycopg2-binary, PyJWT, bcrypt, Flask-Cors
+- `server/todo_api/requirements.txt`: Flask, psycopg2-binary, requests, Flask-Cors
+
+Security & improvements
+- **JWT_SECRET**: Do not use the placeholder secret in production; provide a strong secret via env var.
+- **HTTPS certs**: `nginx` in this repository expects `nginx.crt` / `nginx.key` files mounted into the container. For local testing you can use self-signed certificates.
+- **Production**: Consider using a single database with schemas or a dedicated database server, add migrations (Alembic), and add stronger error handling and rate limiting.
+
+Troubleshooting
+- If you see database connection errors, verify the DB container names/hosts and credentials in `docker-compose.yml`.
+- If client pages fail to load through Nginx, check `nginx.conf` and ensure the `nginx` service is up and has access to certificate files.
+
+Design Document
+For a detailed breakdown of functional and technical requirements, please refer to `actual_requirements.txt`.
+
+Next steps & suggestions
+- Add a simple `Makefile` or helper scripts to simplify common tasks (start, stop, logs).
+- Add unit tests for the API endpoints and a CI pipeline to run them.
+- Consider consolidating DB volumes and improving the docker networking documentation.
+
+--
+If you'd like, I can also:
+- run `docker-compose up` locally (if you want me to run commands here),
+- add a short `CONTRIBUTING.md` with development steps, or
+- add environment examples (`.env.example`) for easier local runs.
+
