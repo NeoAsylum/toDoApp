@@ -48,13 +48,13 @@ services:
     ports:
       - "5002:5000"
     environment:
-      - DB_HOST=db
-      - DB_NAME=postgres
+      - DB_HOST=db_auth
+      - DB_NAME=auth_db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - JWT_SECRET=mysecretkey
     depends_on:
-      - db
+      - db_auth
     networks:
       - app-net
 
@@ -69,8 +69,20 @@ services:
     networks:
       - app-net
 
+  db_auth:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auth_db
+    volumes:
+      - pgdata_auth:/var/lib/postgresql/data
+    networks:
+      - app-net
+
 volumes:
   pgdata:
+  pgdata_auth:
 
 networks:
   app-net:
