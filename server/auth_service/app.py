@@ -5,19 +5,30 @@ import datetime
 import bcrypt
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import time
 
 app = Flask(__name__)
 CORS(app) # Allow all origins
 
 # Database connection
-def get_db_connection():
-    conn = psycopg2.connect(
-        host=os.environ.get("DB_HOST"),
-        database=os.environ.get("DB_NAME"),
-        user=os.environ.get("DB_USER"),
-        password=os.environ.get("DB_PASSWORD"),
-    )
-    return conn
+def get_db_connection(max_retries=10, delay=5):
+    retries = 0
+    while retries < max_retries:
+        try:
+            conn = psycopg2.connect(
+                host=os.environ.get("DB_HOST"),
+                database=os.environ.get("DB_NAME"),
+                user=os.environ.get("DB_USER"),
+                password=os.environ.get("DB_PASSWORD"),
+            )
+            return conn
+        except psycopg2.OperationalError as e:
+            retries += 1
+            if retries == max_retries:
+                raise e
+            print(f"DB connection failed (Attempt {retries}/{max_retries}). Retrying in {delay} seconds...")
+            time.sleep(delay)
+    raise Exception("Failed to establish database connection after multiple retries.")
 
 # Create users table if it doesn't exist
 def create_users_table():
