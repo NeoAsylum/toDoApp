@@ -3,19 +3,30 @@ import psycopg2
 from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
+import time
 
 app = Flask(__name__)
-CORS(app) # Allow all origins for simplicity as it is behind Nginx proxy
+CORS(app) # Allow all origins
 
 # Database connection
-def get_db_connection():
-    conn = psycopg2.connect(
-        host=os.environ.get("DB_HOST"),
-        database=os.environ.get("DB_NAME"),
-        user=os.environ.get("DB_USER"),
-        password=os.environ.get("DB_PASSWORD"),
-    )
-    return conn
+def get_db_connection(max_retries=10, delay=5):
+    retries = 0
+    while retries < max_retries:
+        try:
+            conn = psycopg2.connect(
+                host=os.environ.get("DB_HOST"),
+                database=os.environ.get("DB_NAME"),
+                user=os.environ.get("DB_USER"),
+                password=os.environ.get("DB_PASSWORD"),
+            )
+            return conn
+        except psycopg2.OperationalError as e:
+            retries += 1
+            if retries == max_retries:
+                raise e
+            print(f"DB connection failed (Attempt {retries}/{max_retries}). Retrying in {delay} seconds...")
+            time.sleep(delay)
+    raise Exception("Failed to establish database connection after multiple retries.")
 
 # Create todos table if it doesn't exist
 def create_todos_table():
@@ -38,7 +49,7 @@ def create_todos_table():
     cur.close()
     conn.close()
 
-# Authentication middleware
+# Authentication
 @app.before_request
 def auth_middleware():
     if request.method == 'OPTIONS':
@@ -107,7 +118,7 @@ def update_todo(todo_id):
     data = request.get_json()
     user_id = request.user.get("user_id")
 
-    # Build the SET clause dynamically
+    # Build SET clause
     set_clauses = []
     params = []
 
