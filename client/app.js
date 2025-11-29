@@ -18,10 +18,15 @@ const todoDueDateInput = document.getElementById('todo-due-date');
 const todoPriorityInput = document.getElementById('todo-priority');
 const todoList = document.getElementById('todo-list');
 const emptyState = document.getElementById('empty-state');
+const searchInput = document.getElementById('search-input');
+const searchResultsInfo = document.getElementById('search-results-info');
 
 // Use relative paths for Nginx proxy
 const AUTH_API_URL = '/api/auth';
 const TODO_API_URL = '/api/todos';
+
+// Store all todos for filtering
+let allTodos = [];
 
 function showSection(sectionId) {
     [authContainer, registerContainer, todoContainer].forEach(el => el.classList.add('hidden'));
@@ -155,6 +160,29 @@ function formatDateForInput(dateString) {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
     return date.toISOString().split('T')[0];
+}
+
+// Filter todos based on search input
+function filterTodos() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const tbody = todoList.querySelector('tbody');
+    const rows = tbody.querySelectorAll('tr');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const taskText = row.querySelector('.task-text')?.textContent?.toLowerCase() || '';
+        const isVisible = taskText.includes(searchTerm);
+        row.style.display = isVisible ? '' : 'none';
+        if (isVisible) visibleCount++;
+    });
+
+    // Show/hide search results info
+    if (searchTerm) {
+        searchResultsInfo.textContent = `Found ${visibleCount} task(s)`;
+        searchResultsInfo.classList.remove('hidden');
+    } else {
+        searchResultsInfo.classList.add('hidden');
+    }
 }
 
 async function loadTodos() {
@@ -331,3 +359,6 @@ if (localStorage.getItem('token')) {
 } else {
     showSection('auth-container');
 }
+
+// Add search/filter listener
+searchInput.addEventListener('input', filterTodos);
