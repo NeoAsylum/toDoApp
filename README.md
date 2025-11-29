@@ -10,7 +10,7 @@ This repository contains a small example ToDo application split into separate co
 **High-level architecture**
 - The browser client communicates with the Auth Service to authenticate users and with the ToDo API for todo CRUD operations.
 - The ToDo API checks tokens by calling the Auth Service `/validate` endpoint and uses a Postgres DB to persist todos.
-- An Nginx container is provided to proxy and serve the static client, exposing the two client instances as `/client1/` and `/client2/` paths.
+- An Nginx container is provided to proxy and serve the static client, exposing the client at the root path `/`.
 
 Contents of this README
 - Project Structure
@@ -45,42 +45,28 @@ Project Structure
         - `requirements.txt`: Python dependencies for the ToDo API.
 
 Prerequisites
-Before you begin, ensure you have the following installed:
-- Docker: [https://www.docker.com/get-started](https://www.docker.com/get-started)
-- Docker Compose: Usually comes with Docker Desktop installation.
+- Docker & Docker Compose
 
-Quick start (Docker Compose)
-
-1. Build and start all services:
-
+Quick start
 ```powershell
 docker-compose up --build -d
 ```
 
-2. Check running containers:
+Access the app:
+- Frontend: https://localhost:8080/
+- ToDo API: http://localhost:5001
+- Auth Service: Internal only
 
-```powershell
-docker-compose ps
-```
-
-3. Access the app:
-- Open https://localhost/client1/ or https://localhost/client2/ (Nginx in `docker-compose.yml` proxies these paths to the client containers).
-- The ToDo API is published on the host at `http://localhost:5001` (maps to container port 5000).
-- The Auth Service is published on the host at `http://localhost:5002` (maps to container port 5000).
-
-Stopping and removing containers (and volumes):
-
+Stop and remove volumes:
 ```powershell
 docker-compose down -v
 ```
 
-Note: `-v` removes the database volumes (`pgdata`, `pgdata_auth`) and will delete stored data. Omit `-v` to keep data.
-
 Services & key ports
-- `nginx` — host:443 -> container:443 (configured with `nginx.conf`) — external TLS entrypoint. Use the paths `/client1/` and `/client2/`.
-- `client` / `client2` — static frontend (internal port 80 in the container). Served via nginx proxy in this setup.
+- `nginx` — host:8080 -> container:443 (configured with `nginx.conf`) — external TLS entrypoint.
+- `client` — static frontend (internal port 80 in the container). Served via nginx proxy at root `/`.
 - `todo_api` — host:5001 -> container:5000 (Flask app)
-- `auth_service` — host:5002 -> container:5000 (Flask app)
+- `auth_service` — internal only -> container:5000 (Flask app)
 - `db` (Postgres) — internal DB for `todo_api` (container internal port 5432)
 - `db_auth` (Postgres) — internal DB for `auth_service` (container internal port 5432)
 
@@ -117,7 +103,7 @@ ToDo API (`todo_api`) — requires `Authorization: Bearer <token>` on protected 
 - `GET /health` — simple health check (returns `OK`)
 
 Client
-- The frontend JavaScript (`client/app.js`) expects to access APIs via the proxied paths set by `nginx.conf`: the client uses `clientBasePath` (either `/client1` or `/client2`) and calls the auth and todo endpoints under `/api/auth` and `/api/todos` respectively. When using the provided Docker Compose + Nginx setup, these requests are proxied to `auth_service` and `todo_api`.
+- The frontend JavaScript (`client/app.js`) expects to access APIs via the proxied paths set by `nginx.conf`: the client calls the auth and todo endpoints under `/api/auth` and `/api/todos` respectively. When using the provided Docker Compose + Nginx setup, these requests are proxied to `auth_service` and `todo_api`.
 
 Development notes
 - Local run without Docker (quick):
@@ -133,26 +119,15 @@ Dependencies
 - `server/auth_service/requirements.txt`: Flask, psycopg2-binary, PyJWT, bcrypt, Flask-Cors
 - `server/todo_api/requirements.txt`: Flask, psycopg2-binary, requests, Flask-Cors
 
-Security & improvements
+Security notes
 - **JWT_SECRET**: Do not use the placeholder secret in production; provide a strong secret via env var.
 - **HTTPS certs**: `nginx` in this repository expects `nginx.crt` / `nginx.key` files mounted into the container. For local testing you can use self-signed certificates.
-- **Production**: Consider using a single database with schemas or a dedicated database server, add migrations (Alembic), and add stronger error handling and rate limiting.
 
 Troubleshooting
-- If you see database connection errors, verify the DB container names/hosts and credentials in `docker-compose.yml`.
-- If client pages fail to load through Nginx, check `nginx.conf` and ensure the `nginx` service is up and has access to certificate files.
+- Check `docker-compose logs` if services fail to start.
+- Ensure ports 8080 and 5001 are free.
 
 Design Document
 For a detailed breakdown of functional and technical requirements, please refer to `actual_requirements.txt`.
 
-Next steps & suggestions
-- Add a simple `Makefile` or helper scripts to simplify common tasks (start, stop, logs).
-- Add unit tests for the API endpoints and a CI pipeline to run them.
-- Consider consolidating DB volumes and improving the docker networking documentation.
-
---
-If you'd like, I can also:
-- run `docker-compose up` locally (if you want me to run commands here),
-- add a short `CONTRIBUTING.md` with development steps, or
-- add environment examples (`.env.example`) for easier local runs.
 
