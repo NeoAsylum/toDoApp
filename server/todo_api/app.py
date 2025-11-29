@@ -5,7 +5,7 @@ import requests
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app) # Allow all origins for simplicity as it is behind Nginx proxy
+CORS(app) # Allow all origins
 
 # Database connection
 def get_db_connection():
@@ -38,7 +38,7 @@ def create_todos_table():
     cur.close()
     conn.close()
 
-# Authentication middleware
+# Authentication
 @app.before_request
 def auth_middleware():
     if request.method == 'OPTIONS':
@@ -107,7 +107,7 @@ def update_todo(todo_id):
     data = request.get_json()
     user_id = request.user.get("user_id")
 
-    # Build the SET clause dynamically
+    # Build SET clause
     set_clauses = []
     params = []
 

@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app) # Allow all origins for simplicity as it is behind Nginx proxy
+CORS(app) # Allow all origins
 
 # Database connection
 def get_db_connection():
